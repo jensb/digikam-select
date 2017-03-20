@@ -1,7 +1,7 @@
 # digikam-select
 
-Digikam is a great DAM (Digital Asset Management) application and a decent image editor.
-This script tries to add some non-gui (= cron capable) batch export features to Digikam.
+Digikam is a great DAM (Digital Asset Management) application and image editor.
+This script adds some non-gui (= cron capable) batch export features to Digikam.
 
 ## Requirements
 
