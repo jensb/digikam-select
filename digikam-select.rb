@@ -12,8 +12,11 @@
 # v0.3  - Also allow symlinking or hardlinking (if kept on same device).
 # v0.4  - Add ImageMagick convert options for JPG files.
 # v0.5  - Add interactive mode and force mode.
-# ...
-# v1.0  - Add sync mode.
+#
+## TODO:
+# - Add sync mode (see below)
+# - Add character replacement modes for copying onto FAT mounts or SMB shares (no ":", "<", ">", etc)
+# - Add output filename format when not using albums structure.
 #
 
 require 'progressbar'       # required for eye candy during conversion
@@ -27,7 +30,7 @@ require 'pp'
 #require 'rmagick'           # to convert and recompress images
 #include Magick
 
-VERSION = 0.1
+VERSION = 0.5
 $debug = 0                  # global debugging setting
 
 # Main part. Run after all function definitions at the end of the file.
@@ -115,17 +118,17 @@ def get_options
             " folder structure (default: skip)") do |v|
       options[:force] = v || false
     end
-    opts.on("-s", "--sync", "Sync mode: keep files that would be created",
-            "and delete files that wouldn't be created.",
-            "Any options are only applied to new files.") do |v|
-      options[:sync] = v || false
-    end
+    ## TODO
+    #opts.on("-s", "--sync", "Sync mode: keep files that would be created",
+    #        "and delete files that wouldn't be created.",
+    #        "Any options are only applied to new files.") do |v|
+    #  options[:sync] = v || false
+    #end
 
     # Image selection options
-    opts.on("-tTAGS", "--tags=x,y,z", "Match images with tags (exact",
-            "string, comma separated). Hierarchical tags",
-            "are not supported yet (flat name only).") do |v|
-      options[:tags] = v || []
+    opts.on("-tTAGS", "--tags=x,y,z", "Match images with any listed tag (exact",
+            "string match). Hierarchical tags are"," not supported yet (flat name only).") do |v|
+      options[:tags] = v.split(",") || []
     end
     opts.on("-rN", "--minrating=N", "Match images with at least N stars") do |v|
       options[:minrating] = v || 0
@@ -170,12 +173,13 @@ def get_files(options)
     LEFT JOIN AlbumRoots r ON albumRoot = r.id
     WHERE root != '' AND path != '' "
 
-  sql << "( t.name IN ('#{options[:tags].join(",")}') )"     if options[:tags]
+  sql << "( t.name IN ('#{options[:tags].join("','")}') )"     if options[:tags]
   sql << "( ii.rating >= #{options[:minrating]} )"           if options[:minrating]
   sql << "( a.relativePath LIKE '%#{options[:albumstr]}%' )" if options[:albumstr]
   sqlstr = sql.join(" AND ")                      # TODO: make configurable
   sqlstr = " AND #{sqlstr}" unless sqlstr.empty?
 
+  debug 2, "#{sqlbase} #{sqlstr}", true
   head, *data = db.execute2("#{sqlbase} #{sqlstr}")
   debug 2, "Found #{data.size} matching images.", true
   data
@@ -189,7 +193,7 @@ def put_files(files, options)
     # TODO: warn about filename conflicts here if there are any
   end
   files.each do |file|   # Array of hashes
-    debug 2, "- #{file.inspect}", true
+    #debug 2, "- #{file.inspect}", true
     source = File.join(file["root"], file["path"] || "", file["name"])
     unless File.exist?(source) and File.readable?(source)
       debug 0, "ERROR: File #{source} is not readable or doesn't exist"
@@ -197,15 +201,18 @@ def put_files(files, options)
     end
 
     target = File.join(options[:output], (options[:albums] ? file["path"] : ""), file["name"])
-    debug 2, "  Overwriting #{target}", true if options[:force] and File.exists?(target)
-    debug 2, "  #{options[:mode]} #{source}\t=> #{target}"
+    mode = options[:mode]
+    if File.exists?(target)
+      mode = options[:force] ? "#{options[:mode]} (overwriting)" : "skipping"
+    end
+    debug 2, "#{mode} #{target}", true
+
 
     unless options[:dryrun]
       if File.exists?(target)
         if options[:force]
           File.delete(target)
         else
-          debug 1, "  Skipping #{source}, #{target} exists"
           next
         end
       end
