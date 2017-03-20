@@ -67,3 +67,8 @@ Export, and convert to 50% dimensions:
     $ ruby digikam-export.rb -i ~/Pictures/digikam4.db -o ~/image_export -c "-geometry 50%"
     
 
+## License
+The license of this script is GPL3 as of now. If this causes problems with your intended usage please contact me.
+
+## Contact
+Contact me at jens-github@spamfreemail.de or via Github.
